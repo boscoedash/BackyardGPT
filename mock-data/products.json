@@ -1,0 +1,31 @@
+{
+  "products": [
+    {
+      "id": "1",
+      "name": "Japanese Maple Tree",
+      "category": "Plants & Trees",
+      "price": 89.99,
+      "description": "Beautiful ornamental tree with red foliage",
+      "inStock": true,
+      "image": "https://example.com/japanese-maple.jpg"
+    },
+    {
+      "id": "2",
+      "name": "Paver Stones (Box of 24)",
+      "category": "Hardscape Materials",
+      "price": 149.99,
+      "description": "Natural stone pavers for pathways and patios",
+      "inStock": true,
+      "image": "https://example.com/pavers.jpg"
+    },
+    {
+      "id": "3",
+      "name": "Solar Garden Lights (Set of 6)",
+      "category": "Lighting",
+      "price": 39.99,
+      "description": "Energy-efficient pathway lights",
+      "inStock": true,
+      "image": "https://example.com/lights.jpg"
+    }
+  ]
+}

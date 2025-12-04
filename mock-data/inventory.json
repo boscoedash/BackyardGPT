@@ -1,0 +1,7 @@
+{
+  "inventory": [
+    {"productId": "1", "quantity": 25, "warehouse": "West"},
+    {"productId": "2", "quantity": 150, "warehouse": "East"},
+    {"productId": "3", "quantity": 200, "warehouse": "Central"}
+  ]
+}
