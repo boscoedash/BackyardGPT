@@ -1,354 +1,530 @@
-# Project Context for GitHub Copilot
+# Landscaping AI App - GitHub Copilot Instructions
 
-This is a mobile-first Gen AI landscaping tool that helps users redesign their yard spaces.
+## Project Overview
+Mobile-first Gen AI landscaping tool that helps users redesign their yard spaces using AI-generated designs. Users can take photos of their yard, describe preferences, and get AI-powered landscape designs with shopping recommendations from our mock retailer "Cool Yard Stuff".
 
 ## Tech Stack
-- Frontend: React Native with Expo
-- Backend: Azure Functions (Node.js 18+)
-- AI Services: Azure OpenAI (GPT-4 Vision, DALL-E 3), Anthropic Claude API
-- Storage: Azure Blob Storage, Azure Cosmos DB
-- Deployment: GitHub Actions to Azure
+- **Frontend**: React Native with Expo (iOS and Android)
+- **Backend**: Azure Functions (Node.js 18+, serverless)
+- **AI Services**: 
+  - Azure OpenAI (GPT-4 Vision for analysis, DALL-E 3 for generation)
+  - Anthropic Claude API for design planning
+- **Storage**: Azure Blob Storage (images), Azure Cosmos DB (user data, designs, transactions)
+- **Payments**: Stripe (subscriptions and one-time purchases)
+- **Version Control**: GitHub with GitHub Actions CI/CD
+- **Deployment**: Azure (Functions, Storage, Cosmos DB)
 
-## Code Style Preferences
-- Use async/await over promises
-- Prefer functional React components with hooks
-- Use descriptive variable names
-- Add JSDoc comments for all functions
-- Handle errors gracefully with try-catch
-- Log important operations for debugging
+## Architecture Pattern
+- RESTful API design for all Azure Functions
+- Mobile-first UI with responsive design
+- Serverless backend (Azure Functions)
+- Component-based React Native architecture
+- Context API for global state (user, cart, subscription)
+- Separation of concerns: UI components, business logic, API services
 
-## Architecture Patterns
-- RESTful API design for Azure Functions
-- Component-based UI architecture
-- Separation of concerns: UI, business logic, API calls
-- Environment variables for all secrets and configs
+## Business Model - Freemium
+### Free Tier
+- 3 AI-generated designs per month (resets 1st of month)
+- Basic yard analysis
+- Access to Cool Yard Stuff catalog
+- Save up to 5 designs
+- Standard resolution (1024x1024)
 
-## Key Features
-1. Camera capture and image upload
-2. AI-powered yard analysis using GPT-4 Vision
-3. Design generation with Claude + DALL-E 3
-4. Material pricing estimation
-5. Retail product recommendations
+### Premium Tier ($9.99/month or $99/year)
+- Unlimited AI-generated designs
+- Advanced analysis with measurements
+- Priority processing
+- Unlimited saved designs
+- High resolution (1792x1024)
+- Design revision history
+- PDF export
 
+### Credit Packs (Pay-as-you-go)
+- 10 designs: $4.99
+- 25 designs: $9.99
+- 50 designs: $14.99
 
-## Specific Component Prompts
+### Cool Yard Stuff Shop
+- Mock retailer with landscaping products
+- AI recommendations based on designs
+- Integrated checkout via Stripe
 
-### 1. Camera Component Prompt
+## Code Style Guidelines
+
+### General Principles
+- Write clean, readable, self-documenting code
+- Prefer simplicity over cleverness
+- Comment complex logic, not obvious code
+- Use descriptive names over abbreviations
+
+### JavaScript/React Style
 ```javascript
-// frontend/src/components/Camera/YardCamera.jsx
+// ✅ GOOD - Use async/await
+const generateDesign = async (imageUrl) => {
+  try {
+    const response = await api.post('/GenerateDesign', { imageUrl });
+    return response.data;
+  } catch (error) {
+    console.error('Design generation failed:', error);
+    throw new Error('Failed to generate design. Please try again.');
+  }
+};
 
-// Create a React Native camera component for capturing yard photos with:
-// - Permission handling for camera access
-// - Portrait and landscape orientation support
-// - Photo preview before upload
-// - Crop/zoom functionality
-// - Upload to Azure Blob Storage with progress indicator
-// - Error handling for denied permissions or upload failures
-// - Optimized image compression for mobile upload
-// Use expo-camera and expo-image-picker
+// ❌ AVOID - .then() chains
+api.post('/GenerateDesign', { imageUrl })
+  .then(response => response.data)
+  .catch(error => console.error(error));
+
+// ✅ GOOD - Functional components with hooks
+const YardCamera = ({ onCapture, onCancel }) => {
+  const [hasPermission, setHasPermission] = useState(null);
+  
+  useEffect(() => {
+    requestPermissions();
+  }, []);
+  
+  return <View>...</View>;
+};
+
+// ❌ AVOID - Class components
+class YardCamera extends React.Component { ... }
+
+// ✅ GOOD - Descriptive variable names
+const compressedImageBase64 = await compressImage(originalImage);
+const isSubscriptionActive = user.subscriptionStatus === 'active';
+
+// ❌ AVOID - Single letter variables (except loop counters)
+const img = await compress(orig);
+const x = user.status === 'active';
+
+// ✅ GOOD - Constants for magic numbers
+const FREE_TIER_LIMIT = 3;
+const MAX_IMAGE_SIZE_MB = 10;
+const COMPRESSION_QUALITY = 0.8;
+
+if (user.designCount >= FREE_TIER_LIMIT) {
+  showUpgradePrompt();
+}
+
+// ❌ AVOID - Magic numbers
+if (user.designCount >= 3) { ... }
 ```
 
-### 2. Azure Function Prompt
+### Error Handling Pattern
 ```javascript
-// backend/functions/AnalyzeYard/index.js
+// ✅ ALWAYS use try-catch for async operations
+const handleUpload = async (image) => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const result = await uploadImage(image);
+    return result;
+    
+  } catch (error) {
+    // Log for debugging
+    console.error('Upload failed:', error);
+    
+    // Show user-friendly messages
+    if (error.response?.status === 429) {
+      setError('Too many requests. Please wait a moment.');
+    } else if (error.response?.status === 413) {
+      setError('Image is too large. Please choose a smaller image.');
+    } else {
+      setError('Upload failed. Please check your connection and try again.');
+    }
+    
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
 
-// Create an Azure HTTP Function that:
-// - Accepts a POST request with image URL and user preferences
-// - Uses Azure OpenAI GPT-4 Vision to analyze yard features
-// - Identifies: lawn condition, existing plants, hardscape, sun exposure, dimensions
-// - Returns structured JSON with analysis results
-// - Includes comprehensive error handling and logging
-// - Implements retry logic for API calls
-// - Uses environment variables for API keys
+// ✅ ALWAYS handle errors in Azure Functions
+app.http('FunctionName', {
+  methods: ['POST'],
+  authLevel: 'function',
+  handler: async (request, context) => {
+    try {
+      // Function logic
+      return { status: 200, jsonBody: { success: true } };
+    } catch (error) {
+      context.log.error('Function failed:', error);
+      return {
+        status: 500,
+        jsonBody: {
+          error: 'Operation failed',
+          message: error.message
+        }
+      };
+    }
+  }
+});
 ```
 
-### 3. Design Generation Service Prompt
+### React Native Specific
 ```javascript
-// frontend/src/services/designService.js
+// ✅ Use FlatList for long lists (not ScrollView)
+<FlatList
+  data={products}
+  renderItem={({ item }) => <ProductCard product={item} />}
+  keyExtractor={item => item.id}
+  initialNumToRender={10}
+  maxToRenderPerBatch={10}
+/>
 
-// Create a service module for design generation that:
-// - Uploads images to Azure Blob Storage
-// - Calls the GenerateDesign Azure Function
-// - Handles loading states and progress updates
-// - Implements request cancellation
-// - Caches results locally to avoid redundant API calls
-// - Returns typed response objects
-// - Includes comprehensive error handling with user-friendly messages
+// ✅ Always compress images before upload
+const compressedImage = await ImageManipulator.manipulateAsync(
+  imageUri,
+  [{ resize: { width: 1024 } }],
+  { compress: 0.8, format: SaveFormat.JPEG }
+);
+
+// ✅ Check network connectivity before API calls
+import NetInfo from '@react-native-community/netinfo';
+
+const state = await NetInfo.fetch();
+if (!state.isConnected) {
+  Alert.alert('No Connection', 'Please check your internet connection');
+  return;
+}
 ```
 
-### 4. Pricing Estimator Prompt
+### Documentation Style
 ```javascript
-// backend/functions/CalculatePricing/index.js
-
-// Create an Azure Function for material pricing that:
-// - Accepts a list of landscaping materials with quantities
-// - Integrates with Home Depot and Lowe's product APIs
-// - Calculates total cost estimates
-// - Finds nearest store locations with inventory
-// - Returns comparison pricing from multiple retailers
-// - Handles API rate limits gracefully
-// - Caches product pricing for 24 hours
+/**
+ * Generates an AI-powered landscape design from a yard photo.
+ * 
+ * @param {string} imageUrl - URL of the uploaded yard image
+ * @param {Object} preferences - User design preferences
+ * @param {string} preferences.style - Design style (modern, traditional, native, etc.)
+ * @param {string[]} preferences.plants - Preferred plant types
+ * @param {string} userId - User ID for quota tracking
+ * 
+ * @returns {Promise<Object>} Design object with visualization and materials
+ * @returns {string} return.designId - Unique design identifier
+ * @returns {string} return.visualizationUrl - URL of generated design image
+ * @returns {Object} return.designPlan - Detailed plan with plants and materials
+ * @returns {Object} return.pricing - Cost estimates
+ * 
+ * @throws {Error} If user has exceeded quota
+ * @throws {Error} If AI generation fails
+ * 
+ * @example
+ * const design = await generateDesign(
+ *   'https://storage.../yard.jpg',
+ *   { style: 'modern', plants: ['native', 'drought-tolerant'] },
+ *   'user_123'
+ * );
+ */
 ```
 
-### 5. Design Gallery UI Prompt
+## File Structure
+```
+landscaping-ai/
+├── .github/
+│   ├── copilot-instructions.md (this file)
+│   └── workflows/
+│       ├── frontend-deploy.yml
+│       └── backend-deploy.yml
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # Reusable UI components
+│   │   │   ├── Camera/
+│   │   │   ├── ProductCard/
+│   │   │   ├── DesignGallery/
+│   │   │   └── PaymentModal/
+│   │   ├── screens/         # Full-page screens
+│   │   │   ├── HomeScreen.js
+│   │   │   ├── ShopScreen.js
+│   │   │   └── SubscriptionScreen.js
+│   │   ├── services/        # API clients
+│   │   │   ├── api.js
+│   │   │   ├── shopService.js
+│   │   │   └── paymentService.js
+│   │   ├── contexts/        # React Context for global state
+│   │   │   ├── UserContext.js
+│   │   │   └── CartContext.js
+│   │   ├── utils/           # Helper functions
+│   │   │   ├── imageProcessing.js
+│   │   │   └── formatters.js
+│   │   ├── constants/       # App constants
+│   │   │   └── config.js
+│   │   └── App.js
+│   ├── package.json
+│   └── app.json
+├── backend/
+│   ├── functions/
+│   │   ├── ProcessImage/
+│   │   ├── GenerateDesign/
+│   │   ├── shop/
+│   │   │   ├── GetProducts/
+│   │   │   └── SearchProducts/
+│   │   └── payments/
+│   │       ├── CreateCheckout/
+│   │       ├── StripeWebhook/
+│   │       └── GetSubscriptionStatus/
+│   ├── shared/
+│   │   ├── azure-ai.js
+│   │   ├── anthropic-client.js
+│   │   ├── shopData.js
+│   │   └── stripe-client.js
+│   ├── host.json
+│   └── package.json
+└── README.md
+```
+
+## Environment Variables
+
+### Frontend (.env)
+```
+API_BASE_URL=https://landscaping-ai-functions.azurewebsites.net
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+AZURE_STORAGE_ACCOUNT=landscapingaistorage
+```
+
+### Backend (Function App Settings)
+```
+AZURE_OPENAI_KEY=your_key
+AZURE_OPENAI_ENDPOINT=https://your-instance.openai.azure.com
+ANTHROPIC_API_KEY=sk-ant-...
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;...
+COSMOS_DB_CONNECTION_STRING=AccountEndpoint=https://...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+## Key Business Rules
+
+### Usage Quotas
 ```javascript
-// frontend/src/screens/DesignGallery.jsx
+// Free tier limit
+const FREE_TIER_MONTHLY_LIMIT = 3;
 
-// Create a React Native screen component for viewing saved designs:
-// - Grid layout with thumbnail images
-// - Pull-to-refresh functionality
-// - Infinite scroll pagination
-// - Filter by date, style, or price range
-// - Swipe to delete designs
-// - Share design functionality
-// - Before/after comparison slider
-// - Material design principles with smooth animations
+// Reset on first of month
+const isNewMonth = (lastResetDate) => {
+  const now = new Date();
+  const lastReset = new Date(lastResetDate);
+  return now.getMonth() !== lastReset.getMonth() || 
+         now.getFullYear() !== lastReset.getFullYear();
+};
+
+// Check quota before design generation
+const canGenerateDesign = (user) => {
+  if (user.subscriptionTier === 'premium') return true;
+  if (user.creditsRemaining > 0) return true;
+  if (user.subscriptionTier === 'free') {
+    return user.designsThisMonth < FREE_TIER_MONTHLY_LIMIT;
+  }
+  return false;
+};
 ```
 
-### 6. Image Processing Utility Prompt
+### Pricing Constants
 ```javascript
-// frontend/src/utils/imageProcessing.js
-
-// Create utility functions for image processing:
-// - Resize images to optimal dimensions for AI processing
-// - Compress images while maintaining quality (target < 5MB)
-// - Convert HEIC to JPEG on iOS
-// - Generate thumbnails
-// - Extract EXIF data (location, orientation)
-// - Validate image dimensions and format
-// - Calculate aspect ratios
+const PRICING = {
+  subscription: {
+    monthly: 999,  // $9.99 in cents
+    annual: 9999   // $99.99 in cents
+  },
+  credits: {
+    pack_10: { price: 499, credits: 10 },
+    pack_25: { price: 999, credits: 25 },
+    pack_50: { price: 1499, credits: 50 }
+  }
+};
 ```
 
-### 7. Database Schema Prompt
+### Image Constraints
 ```javascript
-// backend/shared/models/design.js
-
-// Create a Cosmos DB data model for user designs:
-// - User ID (partition key)
-// - Design ID (unique identifier)
-// - Original image URL
-// - Generated design URLs (multiple variations)
-// - Yard analysis data
-// - Design plan (plants, hardscape, materials)
-// - Pricing breakdown
-// - Timestamps (created, modified)
-// - Design style and preferences
-// - Include CRUD operations with proper error handling
+const IMAGE_CONSTRAINTS = {
+  MAX_SIZE_MB: 10,
+  MAX_DIMENSION_PX: 4096,
+  COMPRESSION_WIDTH: 1024,
+  COMPRESSION_QUALITY: 0.8,
+  ALLOWED_FORMATS: ['jpg', 'jpeg', 'png', 'heic']
+};
 ```
 
-### 8. GitHub Actions Workflow Prompt
-```yaml
-# .github/workflows/deploy-backend.yml
+## Security Best Practices
 
-# Create a GitHub Actions workflow that:
-# - Triggers on push to main branch for backend/ directory
-# - Runs on ubuntu-latest
-# - Installs Node.js 18
-# - Installs dependencies
-# - Runs tests with coverage reporting
-# - Deploys to Azure Functions using Azure/functions-action
-# - Uses secrets for Azure credentials
-# - Sends deployment notifications
-# - Includes rollback capability on failure
-```
+### ✅ ALWAYS:
+- Validate all user inputs on backend
+- Use environment variables for secrets
+- Never log sensitive data (API keys, user emails, payment info)
+- Use parameterized queries for database operations
+- Implement rate limiting on Azure Functions
+- Verify Stripe webhook signatures
 
-### 9. API Client Prompt
+### ❌ NEVER:
+- Commit API keys or secrets to Git
+- Trust client-side validation alone
+- Log full request/response bodies (may contain sensitive data)
+- Store passwords or tokens in plain text
+- Allow unlimited API calls without rate limiting
+
 ```javascript
-// frontend/src/services/api.js
+// ✅ GOOD - Validate inputs
+app.http('GenerateDesign', {
+  handler: async (request, context) => {
+    const { imageUrl, userId } = await request.json();
+    
+    if (!imageUrl || !userId) {
+      return { status: 400, jsonBody: { error: 'Missing required fields' } };
+    }
+    
+    if (!imageUrl.startsWith('https://')) {
+      return { status: 400, jsonBody: { error: 'Invalid image URL' } };
+    }
+    
+    // Proceed with generation
+  }
+});
 
-// Create an API client for Azure Functions with:
-// - Axios instance with base configuration
-// - Request/response interceptors for auth tokens
-// - Automatic retry logic with exponential backoff
-// - Request timeout handling (30 seconds)
-// - Network error detection and user-friendly messages
-// - Request cancellation support
-// - TypeScript-style JSDoc annotations
-// - Development/production environment switching
+// ❌ AVOID - No validation
+app.http('GenerateDesign', {
+  handler: async (request, context) => {
+    const { imageUrl, userId } = await request.json();
+    // Directly using inputs without validation
+  }
+});
 ```
 
-### 10. Retail Integration Prompt
+## Testing Guidelines
+
+### What to Test
+- ✅ Payment processing (success, failure, cancellation)
+- ✅ Usage quota enforcement
+- ✅ Image upload and compression
+- ✅ Design generation workflow
+- ✅ Subscription state changes
+- ✅ Shopping cart calculations
+
+### Testing Example
 ```javascript
-// backend/shared/retailers/homeDepotClient.js
-
-// Create a Home Depot API integration module that:
-// - Searches products by name or SKU
-// - Retrieves product details (price, availability, description)
-// - Finds nearby stores with inventory
-// - Gets bulk pricing for large quantities
-// - Handles API authentication and rate limiting
-// - Caches frequent queries
-// - Provides fallback for API failures
-// - Maps our material types to Home Depot categories
+describe('YardCamera', () => {
+  it('should request camera permissions on mount', async () => {
+    const { getByTestId } = render(<YardCamera onCapture={jest.fn()} />);
+    
+    await waitFor(() => {
+      expect(Camera.requestCameraPermissionsAsync).toHaveBeenCalled();
+    });
+  });
+  
+  it('should compress image before calling onCapture', async () => {
+    const mockOnCapture = jest.fn();
+    const { getByTestId } = render(<YardCamera onCapture={mockOnCapture} />);
+    
+    // Simulate capture
+    fireEvent.press(getByTestId('capture-button'));
+    
+    await waitFor(() => {
+      expect(mockOnCapture).toHaveBeenCalled();
+      const capturedImage = mockOnCapture.mock.calls[0][0];
+      expect(capturedImage).toMatch(/^data:image\/jpeg;base64,/);
+    });
+  });
+});
 ```
 
-## Pro Tips for Using These Prompts
+## Common Patterns
 
-1. **Start files with the prompt as a comment** - Copilot reads file context
-2. **Be specific about dependencies** - Mention exact libraries you want to use
-3. **Include constraints** - Mention mobile optimization, error handling needs
-4. **Request structure** - Ask for specific patterns (hooks, async/await, etc.)
-5. **Add examples** - If you have a preferred code style, show a small example
-6. **Iterate** - Accept suggestion, then add a comment asking for refinements
-
-## Multi-File Generation Strategy
-
-1. Create the file with the comment prompt
-2. Press Enter and let Copilot generate
-3. Review and accept useful parts
-4. Add refinement comments for missing pieces
-5. Move to the next file
-
-## Example Workflow
-
-```bash
-# 1. Create file structure
-mkdir -p frontend/src/components/Camera
-touch frontend/src/components/Camera/YardCamera.jsx
-
-# 2. Open file and paste camera component prompt
-# 3. Let Copilot generate
-# 4. Review and refine
-# 5. Repeat for next component
-```
-
-## Copilot Chat Prompts
-
-Use these in Copilot Chat for bigger picture questions:
-
-```
-@workspace How should I structure the API routes for this landscaping app?
-
-@workspace Generate a comprehensive error handling strategy for Azure Function failures
-
-@workspace What's the best way to handle image upload progress in React Native?
-
-@workspace Create a testing strategy for the AI image generation feature
-
-@workspace How can I optimize API costs for Azure OpenAI in production?
-```
-
-## Cool Yard Stuff Shop Prompts
-
-### 11. Shop Frontend Component
+### Loading States
 ```javascript
-// frontend/src/screens/ShopScreen.jsx
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState(null);
 
-// Create a React Native shop screen for "Cool Yard Stuff" with:
-// - Product grid with images, names, and prices
-// - Category filters (Plants, Hardscape, Furniture, Lighting, etc.)
-// - Search bar with real-time filtering
-// - Shopping cart icon with item count badge
-// - Product detail modal on tap
-// - "Add to Cart" functionality with quantity selector
-// - "Recommended for Your Design" section
-// - Pull-to-refresh
-// - Smooth animations and transitions
+const handleAction = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    await performAction();
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+return (
+  <View>
+    {loading && <ActivityIndicator />}
+    {error && <Text style={styles.error}>{error}</Text>}
+    <Button onPress={handleAction} disabled={loading}>
+      Submit
+    </Button>
+  </View>
+);
 ```
 
-### 12. Shopping Cart Component
+### API Calls with Retry
 ```javascript
-// frontend/src/components/ShoppingCart/Cart.jsx
-
-// Create a React Native shopping cart component with:
-// - List of cart items with images and prices
-// - Quantity adjustment (+ / - buttons)
-// - Remove item functionality with swipe gesture
-// - Subtotal, tax, and total calculation
-// - "Checkout" button that initiates Stripe payment
-// - Empty cart state with CTA to browse products
-// - Save cart to local storage for persistence
-// - Estimated delivery date display
+const fetchWithRetry = async (url, options, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      
+      // Don't retry client errors (4xx)
+      if (response.status >= 400 && response.status < 500) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+      
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
+  }
+};
 ```
 
-### 13. Payment Integration Component
-```javascript
-// frontend/src/components/Payment/CheckoutModal.jsx
+## Git Commit Message Format
+```
+<type>: <subject>
 
-// Create a Stripe checkout modal for React Native with:
-// - Integration with @stripe/stripe-react-native
-// - Display order summary before payment
-// - Stripe CardField for payment input
-// - Support for Apple Pay and Google Pay
-// - Loading state during payment processing
-// - Success/failure handling with user feedback
-// - Error handling for declined cards
-// - Redirect to order confirmation screen on success
+<body>
+
+<footer>
+
+Types: feat, fix, docs, style, refactor, test, chore
 ```
 
-### 14. Subscription Management Screen
-```javascript
-// frontend/src/screens/SubscriptionScreen.jsx
+Examples:
+```
+feat: Add camera capture component
 
-// Create a subscription management screen with:
-// - Current plan display (Free/Premium/Credits)
-// - Usage statistics (designs this month, credits remaining)
-// - Pricing cards for Premium plans (monthly/annual)
-// - Credit pack purchase options
-// - "Upgrade" and "Manage Subscription" buttons
-// - Cancel subscription functionality with confirmation
-// - Billing history list
-// - Payment method management
-// - Feature comparison table (Free vs Premium)
+- Implements YardCamera with permission handling
+- Adds image compression (1024px max width)
+- Shows preview screen with retake/use options
+
+Tested on iOS simulator and Android emulator.
+
+---
+
+fix: Correct subscription quota check logic
+
+- Fixed bug where premium users were being limited
+- Updated quota check to properly handle subscription status
+
+Closes #42
 ```
 
-### 15. Shop API Functions
-```javascript
-// backend/functions/shop/GetProducts/index.js
+## Performance Considerations
+- Compress images before uploading (target 1024px width)
+- Use FlatList instead of ScrollView for long lists
+- Implement pagination for API responses (20 items per page)
+- Cache API responses where appropriate (products, user data)
+- Lazy load images in galleries
+- Debounce search inputs (300ms delay)
+- Use React.memo for expensive components
 
-// Create an Azure Function for product retrieval with:
-// - Get all products with pagination (20 per page)
-// - Filter by category, subcategory, price range
-// - Search functionality across name, description, tags
-// - Sort options (price, name, popularity, newest)
-// - Product recommendations based on user's design
-// - Include related products for cross-selling
-// - Cache frequently accessed products
-// - Return proper HTTP status codes
-```
+## Accessibility
+- Add meaningful labels to all touchable elements
+- Use proper heading hierarchy
+- Ensure sufficient color contrast (WCAG AA)
+- Support screen readers with accessibilityLabel
+- Make touch targets at least 44x44pt
 
-### 16. Stripe Setup Script
-```javascript
-// scripts/setup-stripe-products.js
-
-// Create a Node.js script to set up Stripe products and prices:
-// - Create Product objects for subscription plans
-// - Create Price objects for monthly ($9.99) and annual ($99.99)
-// - Create Products for credit packs (10, 25, 50 credits)
-// - Output Price IDs to console for environment variables
-// - Handle idempotency (check if products already exist)
-// - Create test mode and production mode variants
-// - Export configuration as JSON
-```
-
-### 17. Usage Tracking Middleware
-```javascript
-// backend/shared/middleware/usageTracker.js
-
-// Create middleware for tracking design generation usage:
-// - Check user's subscription tier and credit balance
-// - For free tier: verify monthly limit (3 designs)
-// - For premium tier: allow unlimited designs
-// - For credit users: deduct 1 credit per design
-// - Reset monthly counters on first of each month
-// - Return clear error messages when limit reached
-// - Log usage events to Cosmos DB
-// - Handle concurrent request edge cases
-```
-
-## Quick Start Sequence
-
-Use these prompts in order for fastest setup:
-
-1. **Project Structure**: `@workspace /new Create a React Native project with Azure Functions backend for a landscaping design app with Stripe payments`
-2. **Package Setup**: `Generate package.json with all dependencies for React Native app using Expo, Azure Blob Storage, Stripe, and axios`
-3. **Environment Config**: `Create environment configuration files for development and production with Azure endpoints and Stripe keys`
-4. **Mock Shop Data**: Use the Cool Yard Stuff product catalog (already created)
-5. **Camera Component**: Use prompt #1 above
-6. **Shop Screen**: Use prompt #11 above
-7. **Payment Integration**: Use prompts #13 and #14 above
-8. **API Client**: Use prompt #9 above
-9. **First Function**: Use prompt #2 above
-10. **Stripe Setup**: Use prompt #16 above
-
-Start with these and you'll have a working skeleton with payments in 2-3 hours!
+Remember: Write code as if the next person maintaining it is a violent psychopath who knows where you live. Make it clear, make it simple, make it work.
