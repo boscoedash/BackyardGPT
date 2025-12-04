@@ -157,7 +157,7 @@ if (-not $SkipAzureResources) {
         --resource-group $ResourceGroup `
         --consumption-plan-location $Location `
         --runtime node `
-        --runtime-version 18 `
+        --runtime-version 24 `
         --functions-version 4 `
         --name $FunctionApp `
         --storage-account $StorageAccount `
