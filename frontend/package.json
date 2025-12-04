@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@azure/storage-blob": "^12.29.1",
+    "@react-navigation/native": "^7.1.24",
+    "@react-navigation/stack": "^7.6.11",
+    "axios": "^1.13.2",
+    "expo-camera": "^17.0.9",
+    "expo-file-system": "^19.0.19",
+    "expo-image-picker": "^17.0.8",
+    "react-native-paper": "^5.14.5"
+  }
+}

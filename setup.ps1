@@ -208,7 +208,8 @@ AZURE_OPENAI_ENDPOINT=$openAIEndpoint
 ANTHROPIC_API_KEY=your_anthropic_key_here
 AZURE_STORAGE_CONNECTION_STRING=$storageConnectionString
 COSMOS_DB_CONNECTION_STRING=$cosmosConnectionString
-HOME_DEPOT_API_KEY=your_home_depot_key_here
+STRIPE_SECRET_KEY=your_stripe_secret_key_here
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here
 "@
     
     if (-not (Test-Path "backend")) {
@@ -222,6 +223,7 @@ HOME_DEPOT_API_KEY=your_home_depot_key_here
     $frontendEnvContent = @"
 API_BASE_URL=https://$FunctionApp.azurewebsites.net
 AZURE_STORAGE_ACCOUNT=$StorageAccount
+STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key_here
 "@
     
     if (-not (Test-Path "frontend")) {
@@ -235,7 +237,8 @@ AZURE_STORAGE_ACCOUNT=$StorageAccount
     Write-Host "IMPORTANT: Update these API keys manually:" -ForegroundColor Yellow
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Host "1. Add your Anthropic API key to backend\.env" -ForegroundColor Yellow
-    Write-Host "2. Add your Home Depot API key to backend\.env" -ForegroundColor Yellow
+    Write-Host "2. Add your Stripe keys to backend\.env and frontend\.env" -ForegroundColor Yellow
+    Write-Host "   - Get keys from https://dashboard.stripe.com/apikeys" -ForegroundColor Yellow
     Write-Host "`n"
 }
 
@@ -262,6 +265,7 @@ if (-not $SkipProjectInit) {
         npm install expo-camera expo-image-picker expo-file-system
         npm install axios react-native-paper
         npm install @azure/storage-blob
+        npm install "@stripe/stripe-react-native"
         
         Set-Location ..
         Write-Success "Frontend setup complete"
@@ -280,7 +284,9 @@ if (-not $SkipProjectInit) {
         npm install "@anthropic-ai/sdk"
         npm install @azure/cosmos
         npm install @azure/storage-blob
+        npm install stripe
         npm install dotenv
+        npm install uuid
         
         Set-Location ..
         Write-Success "Backend setup complete"
@@ -334,6 +340,114 @@ logs/
         Set-Content -Path ".gitignore" -Value $gitignoreContent
         Write-Success ".gitignore file created"
     }
+    
+    # Create mock-data directory with sample data
+    Write-Step "Creating mock data directory..."
+    if (-not (Test-Path "mock-data")) {
+        New-Item -ItemType Directory -Path "mock-data" -Force | Out-Null
+        
+        $productsJson = @"
+{
+  "products": [
+    {
+      "id": "1",
+      "name": "Japanese Maple Tree",
+      "category": "Plants & Trees",
+      "price": 89.99,
+      "description": "Beautiful ornamental tree with red foliage",
+      "inStock": true,
+      "image": "https://example.com/japanese-maple.jpg"
+    },
+    {
+      "id": "2",
+      "name": "Paver Stones (Box of 24)",
+      "category": "Hardscape Materials",
+      "price": 149.99,
+      "description": "Natural stone pavers for pathways and patios",
+      "inStock": true,
+      "image": "https://example.com/pavers.jpg"
+    },
+    {
+      "id": "3",
+      "name": "Solar Garden Lights (Set of 6)",
+      "category": "Lighting",
+      "price": 39.99,
+      "description": "Energy-efficient pathway lights",
+      "inStock": true,
+      "image": "https://example.com/lights.jpg"
+    }
+  ]
+}
+"@
+        Set-Content -Path "mock-data\products.json" -Value $productsJson
+        
+        $inventoryJson = @"
+{
+  "inventory": [
+    {"productId": "1", "quantity": 25, "warehouse": "West"},
+    {"productId": "2", "quantity": 150, "warehouse": "East"},
+    {"productId": "3", "quantity": 200, "warehouse": "Central"}
+  ]
+}
+"@
+        Set-Content -Path "mock-data\inventory.json" -Value $inventoryJson
+        Write-Success "Mock data files created"
+    }
+    
+    # Create infrastructure directory structure
+    Write-Step "Creating infrastructure directory..."
+    if (-not (Test-Path "infrastructure\bicep")) {
+        New-Item -ItemType Directory -Path "infrastructure\bicep" -Force | Out-Null
+        Write-Success "Infrastructure directory created"
+    }
+    
+    # Create backend functions directory structure
+    Write-Step "Creating backend function directories..."
+    $functionDirs = @(
+        "backend\functions\ProcessImage",
+        "backend\functions\GenerateDesign",
+        "backend\functions\GetPricing",
+        "backend\functions\shop\GetProducts",
+        "backend\functions\shop\SearchProducts",
+        "backend\functions\shop\GetInventory",
+        "backend\functions\payments\CreateCheckout",
+        "backend\functions\payments\VerifyPayment",
+        "backend\functions\payments\ManageSubscription",
+        "backend\shared"
+    )
+    
+    foreach ($dir in $functionDirs) {
+        if (-not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+    }
+    Write-Success "Backend function directories created"
+    
+    # Create frontend directory structure
+    Write-Step "Creating frontend directories..."
+    $frontendDirs = @(
+        "frontend\src\components\Camera",
+        "frontend\src\components\ImageEditor",
+        "frontend\src\components\DesignGallery",
+        "frontend\src\components\PricingEstimator",
+        "frontend\src\components\PaymentModal",
+        "frontend\src\screens",
+        "frontend\src\services"
+    )
+    
+    foreach ($dir in $frontendDirs) {
+        if (-not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+    }
+    Write-Success "Frontend directories created"
+    
+    # Create GitHub workflows directory
+    Write-Step "Creating GitHub workflows directory..."
+    if (-not (Test-Path ".github\workflows")) {
+        New-Item -ItemType Directory -Path ".github\workflows" -Force | Out-Null
+        Write-Success "GitHub workflows directory created"
+    }
 }
 
 Write-Host "`n"
@@ -341,8 +455,15 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "Setup Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
-Write-Host "1. Update API keys in backend\.env and frontend\.env"
-Write-Host "2. Start frontend: cd frontend && npm start"
-Write-Host "3. Start backend: cd backend && func start"
-Write-Host "4. Configure GitHub secrets for CI/CD"
+Write-Host "1. Update API keys in backend\.env and frontend\.env" -ForegroundColor White
+Write-Host "   - Anthropic API: https://console.anthropic.com/" -ForegroundColor Gray
+Write-Host "   - Stripe keys: https://dashboard.stripe.com/apikeys" -ForegroundColor Gray
+Write-Host "2. Install Stripe CLI for webhook testing:" -ForegroundColor White
+Write-Host "   - Windows: scoop install stripe" -ForegroundColor Gray
+Write-Host "   - Login: stripe login" -ForegroundColor Gray
+Write-Host "3. Start developing:" -ForegroundColor White
+Write-Host "   - Frontend: cd frontend && npm start" -ForegroundColor Gray
+Write-Host "   - Backend: cd backend && func start" -ForegroundColor Gray
+Write-Host "4. Configure GitHub secrets for CI/CD" -ForegroundColor White
+Write-Host "5. Review mock data in mock-data\ directory" -ForegroundColor White
 Write-Host "`n"
