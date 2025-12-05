@@ -264,38 +264,39 @@ const YardCamera = ({ onCapture, onCancel }) => {
         style={styles.camera}
         facing="back"
         onCameraReady={handleCameraReady}
-      >
-        <View style={styles.cameraOverlay}>
-          <View style={styles.header}>
-            <Button
-              mode="text"
-              onPress={onCancel}
-              labelStyle={styles.cancelButtonLabel}
-              accessibilityLabel="Cancel and go back"
-            >
-              Cancel
-            </Button>
-          </View>
-
-          <View style={styles.captureContainer}>
-            <Text style={styles.instructionText}>
-              Position your yard in the frame
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.captureButton,
-                !cameraReady && styles.captureButtonDisabled,
-              ]}
-              onPress={handleCapture}
-              disabled={!cameraReady}
-              accessibilityLabel="Capture photo"
-              accessibilityRole="button"
-            >
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
-          </View>
+      />
+      
+      {/* Overlay UI positioned absolutely on top of camera */}
+      <View style={styles.cameraOverlay}>
+        <View style={styles.header}>
+          <Button
+            mode="text"
+            onPress={onCancel}
+            labelStyle={styles.cancelButtonLabel}
+            accessibilityLabel="Cancel and go back"
+          >
+            Cancel
+          </Button>
         </View>
-      </CameraView>
+
+        <View style={styles.captureContainer}>
+          <Text style={styles.instructionText}>
+            Position your yard in the frame
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.captureButton,
+              !cameraReady && styles.captureButtonDisabled,
+            ]}
+            onPress={handleCapture}
+            disabled={!cameraReady}
+            accessibilityLabel="Capture photo"
+            accessibilityRole="button"
+          >
+            <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {!cameraReady && (
         <View style={styles.loadingOverlay}>
@@ -318,10 +319,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   camera: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   cameraOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
     justifyContent: 'space-between',
   },
