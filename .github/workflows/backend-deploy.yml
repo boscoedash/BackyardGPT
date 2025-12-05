@@ -1,0 +1,74 @@
+name: Deploy Azure Functions Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  AZURE_FUNCTIONAPP_NAME: landscaping-ai-functions
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './backend'
+  NODE_VERSION: '20.x'  # Azure Functions v4 supports Node 18, 20
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci --production
+
+    - name: Create deployment package
+      run: |
+        cd backend
+        # Create a clean package excluding dev files
+        mkdir -p deploy
+        cp -r functions shared package.json package-lock.json node_modules deploy/
+        cd deploy
+        zip -r ../deploy.zip ./*
+        cd ..
+        rm -rf deploy
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Functions
+      uses: Azure/functions-action@v1
+      with:
+        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+        package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/deploy.zip
+
+    - name: Verify deployment
+      run: |
+        echo "Waiting for function sync..."
+        sleep 30
+        az functionapp function list \
+          --resource-group rg-backyardgpt \
+          --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
+          --query "[].{Name:name, Status:properties.config.disabled}" \
+          --output table
+
+    - name: Cleanup
+      if: always()
+      run: |
+        cd backend
+        rm -f deploy.zip
+        az logout || true

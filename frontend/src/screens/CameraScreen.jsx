@@ -16,26 +16,59 @@ import {
 } from 'react-native';
 import { Button } from 'react-native-paper';
 import YardCamera from '../components/Camera/YardCamera';
+import { uploadImage } from '../services/imageUploadService';
 
 const CameraScreen = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   /**
    * Handle successful image capture
    * 
    * @param {string} imageBase64 - Base64 encoded JPEG image
    */
-  const handleCapture = (imageBase64) => {
+  const handleCapture = async (imageBase64) => {
     console.log('Image captured, size:', imageBase64.length, 'bytes');
     setCapturedImage(imageBase64);
     setShowCamera(false);
 
-    Alert.alert(
-      'Photo Captured!',
-      `Image size: ${(imageBase64.length / 1024).toFixed(2)} KB`,
-      [{ text: 'OK' }]
-    );
+    // Automatically upload to Azure Blob Storage
+    await handleUpload(imageBase64);
+  };
+
+  /**
+   * Upload captured image to Azure Blob Storage
+   * 
+   * @param {string} imageBase64 - Base64 encoded image
+   */
+  const handleUpload = async (imageBase64) => {
+    try {
+      setIsUploading(true);
+      
+      // In a real app, you'd get the userId from auth context
+      const userId = 'test_user_123';
+      
+      const result = await uploadImage(imageBase64, userId);
+      
+      setUploadedImageUrl(result.imageUrl);
+      
+      Alert.alert(
+        'Upload Successful!',
+        `Image uploaded to Azure Blob Storage\n\nSize: ${result.sizeMB.toFixed(2)} MB\nURL: ${result.imageUrl.substring(0, 50)}...`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Upload failed:', error);
+      Alert.alert(
+        'Upload Failed',
+        error.message,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   /**
@@ -57,6 +90,7 @@ const CameraScreen = ({ navigation }) => {
    */
   const handleClear = () => {
     setCapturedImage(null);
+    setUploadedImageUrl(null);
   };
 
   // Show camera view
@@ -76,7 +110,8 @@ const CameraScreen = ({ navigation }) => {
         <Text style={styles.title}>Camera Test Screen</Text>
         <Text style={styles.description}>
           Test the YardCamera component by taking a photo of your yard.
-          The image will be compressed to 1024px max width at 80% quality.
+          The image will be compressed to 1024px max width at 80% quality
+          and automatically uploaded to Azure Blob Storage.
         </Text>
 
         <Button
@@ -84,10 +119,17 @@ const CameraScreen = ({ navigation }) => {
           onPress={handleTakePhoto}
           style={styles.button}
           icon="camera"
+          disabled={isUploading}
           accessibilityLabel="Take a photo of your yard"
         >
           Take Yard Photo
         </Button>
+
+        {isUploading && (
+          <View style={styles.uploadingContainer}>
+            <Text style={styles.uploadingText}>Uploading to Azure...</Text>
+          </View>
+        )}
 
         {capturedImage && (
           <View style={styles.previewContainer}>
@@ -103,12 +145,22 @@ const CameraScreen = ({ navigation }) => {
             <Text style={styles.imageInfo}>
               Format: JPEG (Base64 encoded)
             </Text>
+            
+            {uploadedImageUrl && (
+              <>
+                <Text style={styles.sectionTitle}>Azure Blob Storage</Text>
+                <Text style={styles.imageInfo}>
+                  Uploaded to: {uploadedImageUrl}
+                </Text>
+              </>
+            )}
 
             <View style={styles.buttonRow}>
               <Button
                 mode="outlined"
                 onPress={handleClear}
                 style={styles.clearButton}
+                disabled={isUploading}
                 accessibilityLabel="Clear captured image"
               >
                 Clear
@@ -117,6 +169,7 @@ const CameraScreen = ({ navigation }) => {
                 mode="contained"
                 onPress={handleTakePhoto}
                 style={styles.retakeButtonAction}
+                disabled={isUploading}
                 accessibilityLabel="Take another photo"
               >
                 Take Another
@@ -160,6 +213,17 @@ const styles = StyleSheet.create({
   button: {
     marginVertical: 10,
     backgroundColor: '#4CAF50',
+  },
+  uploadingContainer: {
+    padding: 15,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    marginVertical: 10,
+  },
+  uploadingText: {
+    fontSize: 16,
+    color: '#1976d2',
+    textAlign: 'center',
   },
   previewContainer: {
     marginTop: 30,
