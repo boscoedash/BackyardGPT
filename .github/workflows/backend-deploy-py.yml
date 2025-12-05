@@ -27,17 +27,12 @@ jobs:
       run: |
         cd backend-py
         python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt -t ./site_packages
+        python -m pip install -r requirements.txt --target ./.python_packages/lib/site-packages
 
     - name: Create deployment package
       run: |
         cd backend-py
-        mkdir -p package
-        cp -r UploadImage host.json package/
-        cp -r site_packages package/
-        cd package
-        zip -r ../deploy.zip ./*
-        cd ..
+        zip -r deploy.zip function_app.py host.json requirements.txt .python_packages
         echo "Package created at $(pwd)/deploy.zip"
 
     - name: Azure Login
@@ -62,4 +57,4 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
-        rm -rf backend-py/site_packages backend-py/package backend-py/deploy.zip
+        rm -rf backend-py/.python_packages backend-py/deploy.zip
