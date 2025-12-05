@@ -30,7 +30,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd backend
-        npm ci --production
+        npm install --production
 
     - name: Create deployment package
       run: |
