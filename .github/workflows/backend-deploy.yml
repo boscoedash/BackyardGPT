@@ -30,10 +30,20 @@ jobs:
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
-    # Install Azure Functions Core Tools globally before npm install
-    - name: Install Azure Functions Core Tools (npm)
+    # Install Azure Functions Core Tools without npm (avoids registry/auth issues)
+    - name: Install Azure Functions Core Tools (apt)
       run: |
-        npm install -g @azure/functions-core-tools@4 --unsafe-perm true
+        sudo apt-get update -y
+        sudo apt-get install -y azure-functions-core-tools-4 || true
+        func --version || echo "Core Tools not available via apt on runner"
+
+    # Fallback: download Core Tools from GitHub releases if apt failed
+    - name: Install Azure Functions Core Tools (fallback)
+      if: ${{ failure() }}
+      run: |
+        wget -q https://github.com/Azure/azure-functions-core-tools/releases/download/4.0.5455/Azure.Functions.Cli.linux-x64.4.0.5455.zip
+        unzip -q Azure.Functions.Cli.linux-x64.4.0.5455.zip -d Azure.Functions.Core.Tools
+        echo "${PWD}/Azure.Functions.Core.Tools" >> $GITHUB_PATH
         func --version
 
     - name: Install dependencies
