@@ -1,21 +1,24 @@
 {
-  "name": "backend",
+  "name": "landscaping-ai-backend",
   "version": "1.0.0",
+  "description": "Azure Functions backend for Landscaping AI app",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "func start",
+    "test": "echo \"No tests yet\" && exit 0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.1",
-    "@azure/cosmos": "^4.9.0",
-    "@azure/functions": "^4.10.0",
-    "@azure/openai": "^2.0.0",
-    "@azure/storage-blob": "^12.29.1",
-    "dotenv": "^17.2.3",
-    "uuid": "^13.0.0"
+    "@azure/functions": "^4.5.0",
+    "@azure/storage-blob": "^12.17.0",
+    "@azure/openai": "^1.0.0-beta.12",
+    "@anthropic-ai/sdk": "^0.20.0",
+    "@azure/cosmos": "^4.0.0",
+    "stripe": "^14.14.0"
+  },
+  "devDependencies": {
+    "@azure/functions-core-tools": "^4.0.5455"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

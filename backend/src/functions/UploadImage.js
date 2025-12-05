@@ -1,7 +1,3 @@
-// ============================================
-// FILE: backend/functions/UploadImage/index.js
-// ============================================
-
 /**
  * UploadImage Azure Function
  * 
@@ -18,51 +14,74 @@
 
 const { app } = require('@azure/functions');
 const { BlobServiceClient } = require('@azure/storage-blob');
+const { v4: uuidv4 } = require('uuid');
 
 // Constants
 const CONTAINER_NAME = 'yard-images';
 const MAX_IMAGE_SIZE_MB = 10;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
+const RETRY_DELAY_MS = 1000; // Base delay for exponential backoff
 
 /**
  * Validates base64 string format
+ * 
+ * @param {string} base64String - String to validate
+ * @returns {boolean} True if valid base64
  */
 const isValidBase64 = (base64String) => {
   if (!base64String || typeof base64String !== 'string') {
     return false;
   }
   
+  // Remove data URI prefix if present
   const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '');
+  
+  // Check if string matches base64 pattern
   const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
   return base64Regex.test(base64Data);
 };
 
 /**
  * Converts base64 string to buffer
+ * 
+ * @param {string} base64String - Base64 encoded string
+ * @returns {Buffer} Decoded buffer
  */
 const base64ToBuffer = (base64String) => {
+  // Remove data URI prefix if present
   const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '');
   return Buffer.from(base64Data, 'base64');
 };
 
 /**
  * Generates unique filename for uploaded image
+ * 
+ * @param {string} userId - User identifier
+ * @param {string} [customFileName] - Optional custom filename
+ * @returns {string} Unique filename in format: userId_timestamp_uuid.jpg
  */
 const generateUniqueFileName = (userId, customFileName) => {
   if (customFileName) {
+    // Sanitize custom filename
     const sanitized = customFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     return sanitized.endsWith('.jpg') ? sanitized : `${sanitized}.jpg`;
   }
   
   const timestamp = Date.now();
-  const randomId = Math.random().toString(36).substr(2, 9);
+  const randomId = uuidv4();
   return `${userId}_${timestamp}_${randomId}.jpg`;
 };
 
 /**
  * Uploads buffer to Azure Blob Storage with retry logic
+ * 
+ * @param {BlobServiceClient} blobServiceClient - Azure Blob Service client
+ * @param {string} containerName - Container name
+ * @param {string} fileName - Blob filename
+ * @param {Buffer} buffer - Image buffer
+ * @param {Object} context - Azure Functions context for logging
+ * @returns {Promise<string>} URL of uploaded blob
  */
 const uploadWithRetry = async (blobServiceClient, containerName, fileName, buffer, context) => {
   const containerClient = blobServiceClient.getContainerClient(containerName);
@@ -72,6 +91,7 @@ const uploadWithRetry = async (blobServiceClient, containerName, fileName, buffe
     try {
       context.log(`Upload attempt ${attempt} for ${fileName}`);
       
+      // Upload with content type
       await blockBlobClient.uploadData(buffer, {
         blobHTTPHeaders: {
           blobContentType: 'image/jpeg',
@@ -88,6 +108,7 @@ const uploadWithRetry = async (blobServiceClient, containerName, fileName, buffe
         throw new Error(`Upload failed after ${MAX_RETRIES} attempts: ${error.message}`);
       }
       
+      // Exponential backoff: 1s, 2s, 4s
       const delayMs = RETRY_DELAY_MS * Math.pow(2, attempt - 1);
       context.log(`Retrying in ${delayMs}ms...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -211,7 +232,7 @@ app.http('UploadImage', {
       // Ensure container exists
       const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
       await containerClient.createIfNotExists({
-        access: 'blob',
+        access: 'blob', // Make blobs publicly readable
       });
       
       // Generate unique filename
