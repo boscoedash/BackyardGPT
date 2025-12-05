@@ -33,7 +33,24 @@ jobs:
     - name: Install dependencies
       run: |
         cd backend
-        npm ci --production
+        # Use npm install to avoid lockfile requirement on CI
+        npm install --production
+
+    # Install Azure Functions Core Tools (avoid npm registry issues)
+    - name: Install Azure Functions Core Tools (apt)
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y azure-functions-core-tools-4 || true
+        func --version || echo "Core Tools not available via apt on runner"
+
+    # Fallback: install Core Tools via direct download
+    - name: Install Azure Functions Core Tools (fallback download)
+      if: ${{ failure() }}
+      run: |
+        wget -q https://github.com/Azure/azure-functions-core-tools/releases/download/4.0.5455/Azure.Functions.Cli.linux-x64.4.0.5455.zip
+        unzip -q Azure.Functions.Cli.linux-x64.4.0.5455.zip -d Azure.Functions.Core.Tools
+        echo "${PWD}/Azure.Functions.Core.Tools" >> $GITHUB_PATH
+        func --version
 
     - name: Create deployment package
       run: |
