@@ -30,6 +30,10 @@ jobs:
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
+    - name: Ensure public npm registry
+      run: |
+        npm config set registry https://registry.npmjs.org/
+
     # Install Azure Functions Core Tools without npm (avoids registry/auth issues)
     - name: Install Azure Functions Core Tools (apt)
       run: |
@@ -50,7 +54,7 @@ jobs:
       run: |
         cd backend
         # Use npm install to avoid lockfile requirement on CI
-        npm install --production
+        npm install --omit=dev
 
     - name: Create deployment package
       run: |
