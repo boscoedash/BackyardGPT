@@ -27,14 +27,14 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { Camera } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Button } from 'react-native-paper';
 import PropTypes from 'prop-types';
 import { IMAGE_CONSTRAINTS } from '../../constants/config';
 
 const YardCamera = ({ onCapture, onCancel }) => {
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -42,40 +42,36 @@ const YardCamera = ({ onCapture, onCancel }) => {
   const cameraRef = useRef(null);
 
   useEffect(() => {
-    requestPermissions();
-  }, []);
+    if (!permission) {
+      requestPermission();
+    }
+  }, [permission]);
 
   /**
    * Request camera permissions
    * Shows alert with settings link if permission is denied
    */
-  const requestPermissions = async () => {
-    try {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Camera Permission Required',
-          'This app needs camera access to take photos of your yard. Please enable camera permissions in your device settings.',
-          [
-            { text: 'Cancel', style: 'cancel', onPress: onCancel },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
-                } else {
-                  Linking.openSettings();
-                }
-              },
+  const handlePermissionRequest = async () => {
+    const result = await requestPermission();
+    
+    if (!result.granted) {
+      Alert.alert(
+        'Camera Permission Required',
+        'This app needs camera access to take photos of your yard. Please enable camera permissions in your device settings.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: onCancel },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
             },
-          ]
-        );
-      }
-    } catch (err) {
-      console.error('Permission request failed:', err);
-      setError('Failed to request camera permission. Please try again.');
+          },
+        ]
+      );
     }
   };
 
@@ -176,7 +172,7 @@ const YardCamera = ({ onCapture, onCancel }) => {
   };
 
   // Permission loading state
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
@@ -186,13 +182,13 @@ const YardCamera = ({ onCapture, onCancel }) => {
   }
 
   // Permission denied state
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>Camera permission is required</Text>
         <Button
           mode="contained"
-          onPress={requestPermissions}
+          onPress={handlePermissionRequest}
           style={styles.retryButton}
           accessibilityLabel="Request camera permission again"
         >
@@ -263,12 +259,11 @@ const YardCamera = ({ onCapture, onCancel }) => {
   // Camera view
   return (
     <View style={styles.container}>
-      <Camera
+      <CameraView
         ref={cameraRef}
         style={styles.camera}
-        type={Camera.Constants.Type.back}
+        facing="back"
         onCameraReady={handleCameraReady}
-        accessibilityLabel="Camera viewfinder"
       >
         <View style={styles.cameraOverlay}>
           <View style={styles.header}>
@@ -300,7 +295,7 @@ const YardCamera = ({ onCapture, onCancel }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </Camera>
+      </CameraView>
 
       {!cameraReady && (
         <View style={styles.loadingOverlay}>
