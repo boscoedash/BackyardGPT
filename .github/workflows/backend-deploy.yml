@@ -37,7 +37,7 @@ jobs:
         cd backend
         # Create a clean package excluding dev files
         mkdir -p deploy
-        cp -r functions package.json package-lock.json node_modules deploy/
+        cp -r functions package.json package-lock.json node_modules host.json deploy/
         [ -d shared ] && cp -r shared deploy/ || true
         cd deploy
         zip -r ../deploy.zip ./*
